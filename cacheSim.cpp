@@ -38,6 +38,23 @@ class way{
 		this_mod_time=0;
 	}
 
+	bool is_dirty(){
+		return dirty == 0 ? false : true;
+	}
+
+	void set_tag(uli tag){
+		if (tag == 0){
+			cerr << "tag is zero";
+			return;
+		}
+		this->tag = tag;
+	 	return;
+	}
+
+	uli get_tag(){
+		return this->tag;
+	}
+
 
 };
 
@@ -45,14 +62,11 @@ class set_class{
 	
 	public:
 
-	vector<way*> way_vec;
+	vector<way> way_vec;
 	uli last_mod_time;
 
-	set_class(uli ways){
-		for (int i; i<ways; i++){
-			way_vec.push_back(new way);
-		}
-
+	set_class(uli ways) : way_vec(ways){
+		assert(way_vec.size() == ways);
 		last_mod_time=0;
 	}
 
@@ -60,8 +74,8 @@ class set_class{
 
 
 class cache_class{
-	vector<set_class*> L1;
-	vector<set_class*> L2;
+	vector<set_class> L1;
+	vector<set_class> L2;
 
 	uli L1_cache_size_bytes;
 	uli L2_cache_size_bytes;
@@ -82,32 +96,23 @@ class cache_class{
 
 	public:
 	cache_class(uli block_size, uli L1_cache_size_bytes , uli L2_cache_size_bytes, 
-				uli L1_assoc, uli L2_assoc, uli write_allock){
-					
-		block_size_bytes = block_size;
+				uli L1_assoc, uli L2_assoc, uli write_allock) : L1(L1_set_num), L2(L2_set_num){
+
+		this->block_size_bytes = block_size;
 		
-		L1_cache_size_bytes = L1_cache_size_bytes;
-		L2_cache_size_bytes = L2_cache_size_bytes;
+		this->L1_cache_size_bytes = L1_cache_size_bytes;
+		this->L2_cache_size_bytes = L2_cache_size_bytes;
 		
-		L1_ways = pow(2,L1_assoc);
-		L2_ways = pow(2,L2_assoc);
+		this->L1_ways = pow(2,L1_assoc);
+		this->L2_ways = pow(2,L2_assoc);
 
-		L1_set_num = L1_cache_size_bytes/(L1_ways*block_size_bytes); // calculate number of sets in each cache.
-		L2_set_num = L2_cache_size_bytes/(L2_ways*block_size_bytes); // number of sets will be the length of the L1, L2 vectors.
+		this->L1_set_num = L1_cache_size_bytes/(L1_ways*block_size_bytes); // calculate number of sets in each cache.
+		this->L2_set_num = L2_cache_size_bytes/(L2_ways*block_size_bytes); // number of sets will be the length of the L1, L2 vectors.
 
-		write_allock = write_allock;
+		this->write_allock = write_allock;
 
-		L1_index_bits = log2 (L1_set_num);
-		L2_index_bits = log2 (L2_set_num);
-
-		//init vectors
-		for(int i=0; i<L1_set_num; i++){
-			L1.push_back(new set_class(L1_ways));
-		}
-
-		for(int i=0; i<L2_set_num; i++){
-			L2.push_back(new set_class(L2_ways));	
-		}
+		this->L1_index_bits = log2 (L1_set_num);
+		this->L2_index_bits = log2 (L2_set_num);
 
 
 	}
@@ -130,29 +135,30 @@ class cache_class{
 
 	}
 
-	int get_LRU_way (set_class* set){
+	int get_LRU_way_index (set_class* set){
 		int min_acc_index=0;
 
-		for (int i =0; i<set->way_vec.size(); i++){
-			if (set->way_vec[min_acc_index]->this_mod_time > set->way_vec[i]->this_mod_time){
+		for (std::vector<way>::size_type i =0; i<set->way_vec.size(); i++){
+			if (set->way_vec[min_acc_index].this_mod_time > set->way_vec[i].this_mod_time){
 				min_acc_index = i;
 			}
 		}
+
 		return min_acc_index;
 	}
 
-	cache_line_status access_L1 (uli address, int* L1_way){
+	cache_line_status access_L1 (uli address, int* L1_way_index){
 
 		uli L1_index = get_L1_index(address);
 		int empty_block_flag =0;
 
 		for(int i=0; i<L1_ways; i++){
-			if(this->L1[L1_index]->way_vec[i]->tag==address){ //check if we already have this data in L1
-				*L1_way = i;
+			if(this->L1[L1_index].way_vec[i].tag==address){ //check if we already have this data in L1
+				*L1_way_index = i;
 				return MATCH;
 			}
-			if(this->L1[L1_index]->way_vec[i]->tag==-1){ //check if there is an empty way in this set
-				*L1_way = i;
+			if(this->L1[L1_index].way_vec[i].tag==-1){ //check if there is an empty way in this set
+				*L1_way_index = i;
 				empty_block_flag=1;
 			}
 		}
@@ -163,7 +169,6 @@ class cache_class{
 		else{
 			return FULL;
 		}
-
 	 }
 
 	cache_line_status access_L2 (uli address, int* L2_way, char command){
