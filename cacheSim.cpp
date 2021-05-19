@@ -112,11 +112,11 @@ class cache_class{
 
 	}
 
-	uli get_L1_index(uli address){
+	uli get_L1_index(uli address){//find appropriate set in L1
 
-		uli L1_index = address <<2;
-		L1_index = address << int(log2(this->block_size_bytes));
-		L1_index = L1_index % (L1_ways);
+		uli L1_index = address << 2;
+		L1_index = L1_index<< int(log2(this->block_size_bytes));
+		L1_index = L1_index % (L1_set_num);
 		return L1_index;
 
 	}
@@ -124,8 +124,8 @@ class cache_class{
 	uli get_L2_index(uli address){
 
 		uli L2_index = address <<2;
-		L2_index = address << int(log2(this->block_size_bytes));
-		L2_index = L2_index % (L2_ways);
+		L2_index = L2_index << int(log2(this->block_size_bytes));
+		L2_index = L2_index % (L2_set_num);
 		return L2_index;
 
 	}
@@ -220,16 +220,28 @@ class cache_class{
 		{
 		case MATCH:
 			if (command=='w'){
-				L1[L1_index]->way_vec[L1_way]->dirty = 1;
+				this->L1[L1_index]->way_vec[L1_way]->dirty = 1;
 			}
-			this->L1[L1_index]->last_mod_time +=1; //increase set max acces time by 1
+			this->L1[L1_index]->last_mod_time += 1; //increase set max acces time by 1
 			this->L1[L1_index]->way_vec[L1_way]->this_mod_time = this->L1[L1_index]->last_mod_time; //update block access time.
-			//TODO: add L2 access time calculation here
+			//TODO: add L1 access time calculation here
 		break;
 
 		case VACANCY:
 		//TODO: add  L2 access time calculation here
 			access_L2(address, &L2_way, command);
+			if(!((command == 'w') && (!this->write_allock))){ //we need to move data into L1
+				this->L1[L1_index]->way_vec[L1_way]->tag=address; //add this block to L1 
+				if (command=='w'){ 
+					this->L1[L1_index]->way_vec[L1_way]->dirty = 1;
+				}
+				else{
+					this->L1[L1_index]->way_vec[L1_way]->dirty = 0;
+				}
+				this->L1[L1_index]->last_mod_time += 1; //increase set max acces time by 1
+				this->L1[L1_index]->way_vec[L1_way]->this_mod_time = this->L1[L1_index]->last_mod_time; //update block access time.
+			}
+			
 		break;
 
 		case FULL:
