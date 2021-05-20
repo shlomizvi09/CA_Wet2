@@ -106,7 +106,8 @@ class cache_class{
 
 	public:
 	cache_class(uli block_size, uli L1_cache_size_bytes , uli L2_cache_size_bytes, 
-				uli L1_assoc, uli L2_assoc, uli write_allock) : L1(L1_set_num), L2(L2_set_num){
+				uli L1_assoc, uli L2_assoc, uli write_allock, uli L1_access_time, uli L2_access_time,
+				uli mem_access_time) : L1(L1_set_num), L2(L2_set_num){
 
 		this->block_size_bytes = block_size;
 		
@@ -198,11 +199,11 @@ class cache_class{
 		int empty_block_flag =0;
 
 		for(int i=0; i<L2_ways; i++){
-			if(this->L2[L2_index]->way_vec[i]->tag==address){ //check if we already have this data in L1
+			if(this->L2[L2_index].way_vec[i].tag==address){ //check if we already have this data in L1
 				*L2_way = i;
 				return MATCH;
 			}
-			if(this->L2[L2_index]->way_vec[i]->tag==-1){ //check if there is an empty way in this set
+			if(this->L2[L2_index].way_vec[i].tag==-1){ //check if there is an empty way in this set
 				*L2_way = i;
 				empty_block_flag=1;
 			}
