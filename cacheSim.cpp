@@ -91,7 +91,17 @@ class cache_class{
 		
 	uli block_size_bytes;
 	
+	uli L1_access_time;
+	uli L2_access_time;
+	uli mem_access_time;
 
+	uli L1_total_access;
+	uli L2_total_access;
+
+	uli L1_total_misses;
+	uli L2_total_misses;
+
+	uli total_access_time;
 	uli write_allock;
 
 	public:
@@ -108,6 +118,19 @@ class cache_class{
 
 		this->L1_set_num = L1_cache_size_bytes/(L1_ways*block_size_bytes); // calculate number of sets in each cache.
 		this->L2_set_num = L2_cache_size_bytes/(L2_ways*block_size_bytes); // number of sets will be the length of the L1, L2 vectors.
+
+		this->write_allock = write_allock;
+
+		this->L1_index_bits = log2 (L1_set_num);
+		this->L2_index_bits = log2 (L2_set_num);
+
+		this-> L1_access_time    = L1_access_time;
+		this-> L2_access_time    = L2_access_time;
+		this-> mem_access_time   = mem_access_time;
+		this-> total_access_time = 0;
+
+		this->L1_total_access=0;
+		this->L2_total_access=0;
 
 		this->write_allock = write_allock;
 
@@ -162,7 +185,6 @@ class cache_class{
 				empty_block_flag=1;
 			}
 		}
-
 		if(empty_block_flag){
 			return VACANCY;
 		}
@@ -185,34 +207,12 @@ class cache_class{
 				empty_block_flag=1;
 			}
 		}
-
-		//TODO: add mem access time here
-
 		if(empty_block_flag){
-			
-			this->L2[L2_index]->way_vec[*L2_way]->tag=address;
 			return VACANCY;
 		}
 		else{
-			
-			if((this->write_allock && command=='w')||command=='r'){ //evict and replace LRU way
-
-				*L2_way = get_LRU_way(this->L2[L2_index]);
-				this->L2[L2_index]->way_vec[*L2_way]->tag=address;
-				this->L2[L2_index]->last_mod_time +=1; //increase set max acces time by 1
-				this->L2[L2_index]->way_vec[*L2_way]->this_mod_time = this->L2[L2_index]->last_mod_time; //update block access time.
-
-				if( command=='w'){
-					this->L2[L2_index]->way_vec[*L2_way]->dirty=1; //mark block as dirty
-				}
-				else{
-					this->L2[L2_index]->way_vec[*L2_way]->dirty=0;
-				}
-				
-			}
 			return FULL;
 		}
-
 	 }
 
 
@@ -220,58 +220,22 @@ class cache_class{
 		int L1_way =0, L2_way;
 		uli L1_index = get_L1_index(address);
 		cache_line_status L1_lookup_result = access_L1(address, &L1_way);
+		this->L1_total_access ++;
+		this->total_access_time += this->L1_access_time;
 
-		switch (L1_lookup_result)
+		if(L1_lookup_result == MATCH)//data found in L1
 		{
-		case MATCH:
 			if (command=='w'){
 				this->L1[L1_index]->way_vec[L1_way]->dirty = 1;
 			}
 			this->L1[L1_index]->last_mod_time += 1; //increase set max acces time by 1
 			this->L1[L1_index]->way_vec[L1_way]->this_mod_time = this->L1[L1_index]->last_mod_time; //update block access time.
-			//TODO: add L1 access time calculation here
-		break;
+		}
 
-		case VACANCY:
-		//TODO: add  L2 access time calculation here
-			access_L2(address, &L2_way, command);
-			if(!((command == 'w') && (!this->write_allock))){ //we need to move data into L1
-				this->L1[L1_index]->way_vec[L1_way]->tag=address; //add this block to L1 
-				if (command=='w'){ 
-					this->L1[L1_index]->way_vec[L1_way]->dirty = 1;
-				}
-				else{
-					this->L1[L1_index]->way_vec[L1_way]->dirty = 0;
-				}
-				this->L1[L1_index]->last_mod_time += 1; //increase set max acces time by 1
-				this->L1[L1_index]->way_vec[L1_way]->this_mod_time = this->L1[L1_index]->last_mod_time; //update block access time.
-			}
-			
-		break;
-
-		case FULL:
-
-			
-			if((this->write_allock && command=='w')||command=='r'){ //evict and replace LRU way in cache L1
-
-				L1_way = get_LRU_way(this->L1[L1_index]);
-				this->L1[L1_index]->way_vec[L1_way]->tag=address;
-				this->L1[L1_index]->last_mod_time +=1; //increase set max acces time by 1
-				this->L1[L1_index]->way_vec[L1_way]->this_mod_time = this->L1[L1_index]->last_mod_time; //update block access time.
-
-				if( command=='w'){
-					this->L1[L1_index]->way_vec[L1_way]->dirty=1; //mark block as dirty
-				}
-				else{
-					this->L1[L1_index]->way_vec[L1_way]->dirty=0;
-				}
-				
-			}
-			break;
-
-		default:
-			assert(0 && "should not reach here");
-			break;
+		else{ //data not found in L1, trying L2
+			this->L1_total_access ++;
+			this->total_access_time += this->L2_access_time;
+			cache_line_status L2_lookup_result = access_L2(address, &L2_way, command);
 		}
 		
 		
@@ -327,7 +291,7 @@ int main(int argc, char **argv) {
 			return 0;
 		}
 	}
-	cache_class cache(BSize,L1Size, L2Size, L1Assoc, L2Assoc,WrAlloc);
+	cache_class cache(BSize,L1Size, L2Size, L1Assoc, L2Assoc,WrAlloc, L1Cyc, L2Cyc, MemCyc);
 
 	while (getline(file, line)) {
 
