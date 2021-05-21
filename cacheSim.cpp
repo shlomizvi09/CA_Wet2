@@ -20,17 +20,17 @@ using std::ifstream;
 using std::stringstream;
 
 
-enum cache_line_status {MATCH, VACANCY, FULL}; //cache lookup results
+enum cache_line_status {DEFAULT=-1, MATCH, VACANCY, FULL}; //cache lookup results
 
-typedef unsigned long int uli; //shortcut
+typedef uint32_t uint; //shortcut
 
 class way{
 	
 	public:
 	
-	uli dirty;
+	uint dirty;
 	int tag;
-	uli this_mod_time;
+	uint this_mod_time;
 
 	way(){
 		dirty=0;
@@ -42,7 +42,7 @@ class way{
 		return dirty == 0 ? false : true;
 	}
 
-	void set_tag(uli tag){
+	void set_tag(uint tag){
 		if (tag == 0){
 			cerr << "tag is zero";
 			return;
@@ -51,7 +51,7 @@ class way{
 	 	return;
 	}
 
-	uli get_tag(){
+	uint get_tag(){
 		return this->tag;
 	}
 
@@ -63,11 +63,32 @@ class set_class{
 	public:
 
 	vector<way> way_vec;
-	uli last_mod_time;
+	uint last_mod_time;
 
-	set_class(uli ways) : way_vec(ways){
+	set_class(uint ways) : way_vec(ways){
 		assert(way_vec.size() == ways);
 		last_mod_time=0;
+	}
+
+	int get_way_index(uint address){
+		for (std::vector<way>::size_type i = 0; i < this->way_vec.size(); i++){
+			if (this->way_vec[i].tag == address){
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	int get_LRU_way_index (){
+		int min_acc_index=0;
+
+		for (std::vector<way>::size_type i = 0; i < this->way_vec.size(); i++){
+			if (this->way_vec[min_acc_index].this_mod_time > this->way_vec[i].this_mod_time){
+				min_acc_index = i;
+			}
+		}
+
+		return min_acc_index;
 	}
 
 };
@@ -77,37 +98,37 @@ class cache_class{
 	vector<set_class> L1;
 	vector<set_class> L2;
 
-	uli L1_cache_size_bytes;
-	uli L2_cache_size_bytes;
+	uint L1_cache_size_bytes;
+	uint L2_cache_size_bytes;
 
-	uli L1_set_num;
-	uli L2_set_num;
+	uint L1_set_num;
+	uint L2_set_num;
 
-	uli L1_ways;
-	uli L2_ways;
+	uint L1_ways;
+	uint L2_ways;
 
-	uli L1_index_bits;
-	uli L2_index_bits;
+	uint L1_index_bits;
+	uint L2_index_bits;
 		
-	uli block_size_bytes;
+	uint block_size_bytes;
 	
-	uli L1_access_time;
-	uli L2_access_time;
-	uli mem_access_time;
+	uint L1_access_time;
+	uint L2_access_time;
+	uint mem_access_time;
 
-	uli L1_total_access;
-	uli L2_total_access;
+	uint L1_total_access;
+	uint L2_total_access;
 
-	uli L1_total_misses;
-	uli L2_total_misses;
+	uint L1_total_misses;
+	uint L2_total_misses;
 
-	uli total_access_time;
-	uli write_allock;
+	uint total_access_time;
+	uint write_alloc;
 
 	public:
-	cache_class(uli block_size, uli L1_cache_size_bytes , uli L2_cache_size_bytes, 
-				uli L1_assoc, uli L2_assoc, uli write_allock, uli L1_access_time, uli L2_access_time,
-				uli mem_access_time) : L1(L1_set_num), L2(L2_set_num){
+	cache_class(uint block_size, uint L1_cache_size_bytes , uint L2_cache_size_bytes, 
+				uint L1_assoc, uint L2_assoc, uint write_alloc, uint L1_access_time, uint L2_access_time,
+				uint mem_access_time) : L1(L1_set_num), L2(L2_set_num){
 
 		this->block_size_bytes = block_size;
 		
@@ -120,7 +141,7 @@ class cache_class{
 		this->L1_set_num = L1_cache_size_bytes/(L1_ways*block_size_bytes); // calculate number of sets in each cache.
 		this->L2_set_num = L2_cache_size_bytes/(L2_ways*block_size_bytes); // number of sets will be the length of the L1, L2 vectors.
 
-		this->write_allock = write_allock;
+		this->write_alloc = write_alloc;
 
 		this->L1_index_bits = log2 (L1_set_num);
 		this->L2_index_bits = log2 (L2_set_num);
@@ -132,8 +153,10 @@ class cache_class{
 
 		this->L1_total_access=0;
 		this->L2_total_access=0;
+		this->L1_total_misses=0;
+		this->L2_total_misses=0;
 
-		this->write_allock = write_allock;
+		this->write_alloc = write_alloc;
 
 		this->L1_index_bits = log2 (L1_set_num);
 		this->L2_index_bits = log2 (L2_set_num);
@@ -141,39 +164,35 @@ class cache_class{
 
 	}
 
-	uli get_L1_index(uli address){//find appropriate set in L1
+	uint get_L1_set_index(uint address){//find appropriate set in L1
 
-		uli L1_index = address << 2;
+		uint L1_index = address << 2;
 		L1_index = L1_index<< int(log2(this->block_size_bytes));
 		L1_index = L1_index % (L1_set_num);
 		return L1_index;
 
 	}
 
-	uli get_L2_index(uli address){
+	uint get_L2_set_index(uint address){
 
-		uli L2_index = address <<2;
+		uint L2_index = address <<2;
 		L2_index = L2_index << int(log2(this->block_size_bytes));
 		L2_index = L2_index % (L2_set_num);
 		return L2_index;
 
 	}
 
-	int get_LRU_way_index (set_class* set){
-		int min_acc_index=0;
-
-		for (std::vector<way>::size_type i =0; i<set->way_vec.size(); i++){
-			if (set->way_vec[min_acc_index].this_mod_time > set->way_vec[i].this_mod_time){
-				min_acc_index = i;
-			}
-		}
-
-		return min_acc_index;
+	double get_L1_miss_rate(){
+		return this->L1_total_misses / this->L1_total_access;
 	}
 
-	cache_line_status access_L1 (uli address, int* L1_way_index){
+	double get_L2_miss_rate(){
+		return this->L2_total_misses / this->L2_total_access;
+	}
 
-		uli L1_index = get_L1_index(address);
+	cache_line_status access_L1 (uint address, uint* L1_way_index){
+
+		uint L1_index = get_L1_set_index(address);
 		int empty_block_flag =0;
 
 		for(int i=0; i<L1_ways; i++){
@@ -194,8 +213,8 @@ class cache_class{
 		}
 	 }
 
-	cache_line_status access_L2 (uli address, int* L2_way, char command){
-		uli L2_index = get_L2_index(address);
+	cache_line_status access_L2 (uint address, uint* L2_way, char command){
+		uint L2_index = get_L2_set_index(address);
 		int empty_block_flag =0;
 
 		for(int i=0; i<L2_ways; i++){
@@ -216,30 +235,104 @@ class cache_class{
 		}
 	 }
 
+	void evict_block_from_L1(uint L1_set_index, uint L1_way_index){
+		assert(this->L1[L1_set_index].way_vec[L1_way_index].tag != -1);
+		if (this->L1[L1_set_index].way_vec[L1_way_index].dirty){  // Write Back
+			uint L2_set_index = this->get_L2_set_index(this->L1[L1_set_index].way_vec[L1_way_index].tag);
+			uint L2_way_index = this->L2[L2_set_index].get_way_index(this->L1[L1_set_index].way_vec[L1_way_index].tag);
+			this->L2[L2_set_index].way_vec[L2_way_index].dirty = 1;
+		}
+		this->L1[L1_set_index].way_vec[L1_way_index].dirty = 0;
+		this->L1[L1_set_index].way_vec[L1_way_index].tag = -1;
+	}
 
-	void execute_command(char command, uli address){
-		int L1_way =0, L2_way;
-		uli L1_index = get_L1_index(address);
-		cache_line_status L1_lookup_result = access_L1(address, &L1_way);
+	void evict_block_from_L2(uint L2_set_index, uint L2_way_index){
+		uint address = this->L2[L2_set_index].way_vec[L2_way_index].tag;
+		assert(address != -1);
+		uint L1_way_index = 0;
+		cache_line_status L1_lookup_res = access_L1(address, &L1_way_index);
+		if (L1_lookup_res == MATCH){
+			uint L1_set_index = this->get_L1_set_index(address);
+			this->evict_block_from_L1(L1_set_index, L1_way_index);
+		}
+		if (this->L2[L2_set_index].way_vec[L2_way_index].dirty){
+			// do nothing, it's a Write Back.
+		}
+		this->L2[L2_set_index].way_vec[L2_way_index].dirty = 0;
+		this->L2[L2_set_index].way_vec[L2_way_index].tag = -1;
+	}
+
+	// void insert_block_to_L1(uint address){
+
+	// }
+
+	void execute_command(char command, uint address){
+		uint L1_way_index = 0, L2_way_index = 0;
+		uint L1_set_index = get_L1_set_index(address);
+		uint L2_set_index = this->get_L2_set_index(address);
+		cache_line_status L1_lookup_result = access_L1(address, &L1_way_index);
+		cache_line_status L2_lookup_result = DEFAULT;
 		this->L1_total_access ++;
 		this->total_access_time += this->L1_access_time;
 
 		if(L1_lookup_result == MATCH)//data found in L1
 		{
 			if (command=='w'){
-				this->L1[L1_index]->way_vec[L1_way]->dirty = 1;
+				this->L1[L1_set_index].way_vec[L1_way_index].dirty = 1;
 			}
-			this->L1[L1_index]->last_mod_time += 1; //increase set max acces time by 1
-			this->L1[L1_index]->way_vec[L1_way]->this_mod_time = this->L1[L1_index]->last_mod_time; //update block access time.
+			this->L1[L1_set_index].last_mod_time += 1; //increase set max access time by 1
+			this->L1[L1_set_index].way_vec[L1_way_index].this_mod_time = this->L1[L1_set_index].last_mod_time; //update block access time.
+			return;
 		}
-
-		else{ //data not found in L1, trying L2
-			this->L1_total_access ++;
-			this->total_access_time += this->L2_access_time;
-			cache_line_status L2_lookup_result = access_L2(address, &L2_way, command);
+		this->L1_total_misses++;
+		L2_lookup_result = access_L2(address, &L2_way_index, command); //data not found in L1, trying L2
+		this->L2_total_access ++;
+		this->total_access_time += this->L2_access_time;
+		if (L2_lookup_result == MATCH){
+			if (command == 'w' && !(this->write_alloc)){ // Writing in "No Write Allocate" method, without copying to L1
+				this->L2[L2_set_index].way_vec[L2_way_index].dirty = 1;
+				this->L2[L2_set_index].last_mod_time += 1; //increase set max access time by 1
+				this->L2[L2_set_index].way_vec[L2_way_index].this_mod_time = this->L2[L2_set_index].last_mod_time; //update block access time.
+				return;
+			}
+			// if we got here, command is 'READ' or command is 'WRITE' with "Write Alloc", so we bring the block to L1 anyway.
+			if (L1_lookup_result = FULL){
+				uint L1_LRU_way_index = this->L1[L1_set_index].get_LRU_way_index();
+				L1_way_index = L1_LRU_way_index;
+				this->evict_block_from_L1(L1_set_index, L1_LRU_way_index);
+			}
+			this->L1[L1_set_index].way_vec[L1_way_index].tag = address;
+			this->L1[L1_set_index].way_vec[L1_way_index].dirty = (command == 'w') ? 1 : 0; // the difference between 'READ' and "Write-Alloc".
+			this->L1[L1_set_index].last_mod_time += 1; //increase set max access time by 1
+			this->L1[L1_set_index].way_vec[L1_way_index].this_mod_time = this->L1[L1_set_index].last_mod_time; //update block access time.
+			return;
 		}
-		
-		
+		this->L2_total_misses++;
+		// if we got here, the block isn't in L2 as well, so we access Mem.
+		this->total_access_time += this->mem_access_time;
+		if (command == 'w' && !(this->write_alloc)){
+			return; // we don't actually write in this simulator. suppose we wrote, and return.
+		}
+		if (L2_lookup_result == FULL){
+			uint L2_LRU_way_index = this->L2[L2_set_index].get_LRU_way_index();
+			L2_way_index = L2_LRU_way_index;
+			this->evict_block_from_L2(L2_set_index, L2_LRU_way_index);
+		}
+		this->L2[L2_set_index].way_vec[L2_way_index].tag = address;
+		this->L2[L2_set_index].way_vec[L2_way_index].dirty = 0; // the difference between 'READ' and "Write-Alloc".
+		this->L2[L2_set_index].last_mod_time += 1; //increase set max access time by 1
+		this->L2[L2_set_index].way_vec[L2_way_index].this_mod_time = this->L2[L2_set_index].last_mod_time; //update block access time.
+		L1_lookup_result = access_L1(address, &L1_way_index); //TODO: think if need to add L1 access time
+		if (L1_lookup_result = FULL){
+			uint L1_LRU_way_index = this->L1[L1_set_index].get_LRU_way_index();
+			L1_way_index = L1_LRU_way_index;
+			this->evict_block_from_L1(L1_set_index, L1_LRU_way_index);
+		}
+		this->L1[L1_set_index].way_vec[L1_way_index].tag = address;
+		this->L1[L1_set_index].way_vec[L1_way_index].dirty = (command == 'w') ? 1 : 0; // the difference between 'READ' and "Write-Alloc".
+		this->L1[L1_set_index].last_mod_time += 1; //increase set max access time by 1
+		this->L1[L1_set_index].way_vec[L1_way_index].this_mod_time = this->L1[L1_set_index].last_mod_time; //update block access time.
+		return;
 	}
 
 };
