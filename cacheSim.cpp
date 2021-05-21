@@ -98,8 +98,8 @@ class cache_class{
 	vector<set_class> L1;
 	vector<set_class> L2;
 
-	uint L1_cache_size_bytes;
-	uint L2_cache_size_bytes;
+	uint L1_cache_size;
+	uint L2_cache_size;
 
 	uint L1_set_num;
 	uint L2_set_num;
@@ -110,7 +110,7 @@ class cache_class{
 	uint L1_index_bits;
 	uint L2_index_bits;
 		
-	uint block_size_bytes;
+	uint block_size;
 	
 	uint L1_access_time;
 	uint L2_access_time;
@@ -126,20 +126,20 @@ class cache_class{
 	uint write_alloc;
 
 	public:
-	cache_class(uint block_size, uint L1_cache_size_bytes , uint L2_cache_size_bytes, 
+	cache_class(uint block_size_bytes, uint L1_cache_size_bytes , uint L2_cache_size_bytes, 
 				uint L1_assoc, uint L2_assoc, uint write_alloc, uint L1_access_time, uint L2_access_time,
 				uint mem_access_time) : L1(1), L2(1){
 
-		this->block_size_bytes = block_size;
+		this->block_size = block_size_bytes;
 		
-		this->L1_cache_size_bytes = L1_cache_size_bytes;
-		this->L2_cache_size_bytes = L2_cache_size_bytes;
+		this->L1_cache_size = pow(2, L1_cache_size_bytes);
+		this->L2_cache_size = pow(2, L2_cache_size_bytes);
 		
 		this->L1_ways = pow(2,L1_assoc);
 		this->L2_ways = pow(2,L2_assoc);
 
-		this->L1_set_num = L1_cache_size_bytes/(L1_ways*block_size_bytes); // calculate number of sets in each cache.
-		this->L2_set_num = L2_cache_size_bytes/(L2_ways*block_size_bytes); // number of sets will be the length of the L1, L2 vectors.
+		this->L1_set_num = this->L1_cache_size / (this->L1_ways * this->block_size); // calculate number of sets in each cache.
+		this->L2_set_num = this->L2_cache_size / (this->L1_ways * this->block_size); // number of sets will be the length of the L1, L2 vectors.
 
 		this->L1.resize(L1_set_num);
 		this->L2.resize(L2_set_num);
