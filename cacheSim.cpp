@@ -118,6 +118,7 @@ class cache_class{
 
 	uint L1_total_access;
 	uint L2_total_access;
+	uint total_mem_access;
 
 	uint L1_total_misses;
 	uint L2_total_misses;
@@ -130,7 +131,7 @@ class cache_class{
 				uint L1_assoc, uint L2_assoc, uint write_alloc, uint L1_access_time, uint L2_access_time,
 				uint mem_access_time) : L1(1), L2(1){
 
-		this->block_size = block_size_bytes;
+		this->block_size =  pow(2, block_size_bytes);
 		
 		this->L1_cache_size = pow(2, L1_cache_size_bytes);
 		this->L2_cache_size = pow(2, L2_cache_size_bytes);
@@ -176,8 +177,8 @@ class cache_class{
 
 	uint get_L1_set_index(uint address){//find appropriate set in L1
 
-		uint L1_index = address << 2;
-		L1_index = L1_index<< int(log2(this->block_size));
+		uint L1_index = address;//<< 2;
+		L1_index = L1_index >> int(log2(this->block_size));
 		L1_index = L1_index % (L1_set_num);
 		return L1_index;
 
@@ -185,19 +186,23 @@ class cache_class{
 
 	uint get_L2_set_index(uint address){
 
-		uint L2_index = address <<2;
-		L2_index = L2_index << int(log2(this->block_size));
+		uint L2_index = address;// <<2;
+		L2_index = L2_index >> int(log2(this->block_size));
 		L2_index = L2_index % (L2_set_num);
 		return L2_index;
 
 	}
 
 	double get_L1_miss_rate(){
-		return this->L1_total_misses / this->L1_total_access;
+		return double(this->L1_total_misses) / this->L1_total_access;
 	}
 
 	double get_L2_miss_rate(){
-		return this->L2_total_misses / this->L2_total_access;
+		return double(this->L2_total_misses) / this->L2_total_access;
+	}
+
+	double get_average_access_time(){
+		return double(this->total_access_time)/(this->L1_total_access);
 	}
 
 	cache_line_status access_L1 (uint address, uint* L1_way_index){
@@ -277,10 +282,16 @@ class cache_class{
 	// }
 
 	void execute_command(char command, uint address){
+		uint block_alligned_address = address - address%this->block_size;
+		uint block_offset = address -block_alligned_address; //maybe needed for later (?)
+		address = block_alligned_address;
+		printf("block address is: %0d --- ", address );		
 		uint L1_way_index = 0, L2_way_index = 0;
 		uint L1_set_index = get_L1_set_index(address);
+		printf("L1_set_index is: %0d ", L1_set_index);		
 		uint L2_set_index = this->get_L2_set_index(address);
 		cache_line_status L1_lookup_result = access_L1(address, &L1_way_index);
+		printf("lookup for L1 result is: %0d \n", L1_lookup_result);		
 		cache_line_status L2_lookup_result = DEFAULT;
 		this->L1_total_access ++;
 		this->total_access_time += this->L1_access_time;
@@ -296,6 +307,7 @@ class cache_class{
 		}
 		this->L1_total_misses++;
 		L2_lookup_result = access_L2(address, &L2_way_index, command); //data not found in L1, trying L2
+		//printf("lookup for L2 result is: %0d \n", L2_lookup_result);	
 		this->L2_total_access ++;
 		this->total_access_time += this->L2_access_time;
 		if (L2_lookup_result == MATCH){
@@ -318,7 +330,9 @@ class cache_class{
 			return;
 		}
 		this->L2_total_misses++;
+		//printf("L2_total_misses is: %0d \n", L2_total_misses);	
 		// if we got here, the block isn't in L2 as well, so we access Mem.
+
 		this->total_access_time += this->mem_access_time;
 		if (command == 'w' && !(this->write_alloc)){
 			return; // we don't actually write in this simulator. suppose we wrote, and return.
@@ -333,7 +347,7 @@ class cache_class{
 		this->L2[L2_set_index].last_mod_time += 1; //increase set max access time by 1
 		this->L2[L2_set_index].way_vec[L2_way_index].this_mod_time = this->L2[L2_set_index].last_mod_time; //update block access time.
 		L1_lookup_result = access_L1(address, &L1_way_index); //TODO: think if need to add L1 access time
-		if (L1_lookup_result = FULL){
+		if (L1_lookup_result == FULL){
 			uint L1_LRU_way_index = this->L1[L1_set_index].get_LRU_way_index();
 			L1_way_index = L1_LRU_way_index;
 			this->evict_block_from_L1(L1_set_index, L1_LRU_way_index);
@@ -426,9 +440,9 @@ int main(int argc, char **argv) {
 
 	}
 
-	double L1MissRate;
-	double L2MissRate;
-	double avgAccTime;
+	double L1MissRate = cache.get_L1_miss_rate();
+	double L2MissRate = cache.get_L2_miss_rate();
+	double avgAccTime = cache.get_average_access_time();
 
 	printf("L1miss=%.03f ", L1MissRate);
 	printf("L2miss=%.03f ", L2MissRate);
