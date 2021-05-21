@@ -177,7 +177,7 @@ class cache_class{
 	uint get_L1_set_index(uint address){//find appropriate set in L1
 
 		uint L1_index = address << 2;
-		L1_index = L1_index<< int(log2(this->block_size_bytes));
+		L1_index = L1_index<< int(log2(this->block_size));
 		L1_index = L1_index % (L1_set_num);
 		return L1_index;
 
@@ -186,7 +186,7 @@ class cache_class{
 	uint get_L2_set_index(uint address){
 
 		uint L2_index = address <<2;
-		L2_index = L2_index << int(log2(this->block_size_bytes));
+		L2_index = L2_index << int(log2(this->block_size));
 		L2_index = L2_index % (L2_set_num);
 		return L2_index;
 
