@@ -277,21 +277,14 @@ class cache_class{
 		this->L2[L2_set_index].way_vec[L2_way_index].tag = -1;
 	}
 
-	// void insert_block_to_L1(uint address){
-
-	// }
-
 	void execute_command(char command, uint address){
 		uint block_alligned_address = address - address%this->block_size;
 		uint block_offset = address -block_alligned_address; //maybe needed for later (?)
 		address = block_alligned_address;
-		printf("block address is: %0d --- ", address );		
 		uint L1_way_index = 0, L2_way_index = 0;
-		uint L1_set_index = get_L1_set_index(address);
-		printf("L1_set_index is: %0d ", L1_set_index);		
+		uint L1_set_index = get_L1_set_index(address);	
 		uint L2_set_index = this->get_L2_set_index(address);
 		cache_line_status L1_lookup_result = access_L1(address, &L1_way_index);
-		printf("lookup for L1 result is: %0d \n", L1_lookup_result);		
 		cache_line_status L2_lookup_result = DEFAULT;
 		this->L1_total_access ++;
 		this->total_access_time += this->L1_access_time;
@@ -307,7 +300,6 @@ class cache_class{
 		}
 		this->L1_total_misses++;
 		L2_lookup_result = access_L2(address, &L2_way_index, command); //data not found in L1, trying L2
-		//printf("lookup for L2 result is: %0d \n", L2_lookup_result);	
 		this->L2_total_access ++;
 		this->total_access_time += this->L2_access_time;
 		if (L2_lookup_result == MATCH){
@@ -318,7 +310,7 @@ class cache_class{
 				return;
 			}
 			// if we got here, command is 'READ' or command is 'WRITE' with "Write Alloc", so we bring the block to L1 anyway.
-			if (L1_lookup_result = FULL){
+			if (L1_lookup_result == FULL){
 				uint L1_LRU_way_index = this->L1[L1_set_index].get_LRU_way_index();
 				L1_way_index = L1_LRU_way_index;
 				this->evict_block_from_L1(L1_set_index, L1_LRU_way_index);
@@ -330,7 +322,6 @@ class cache_class{
 			return;
 		}
 		this->L2_total_misses++;
-		//printf("L2_total_misses is: %0d \n", L2_total_misses);	
 		// if we got here, the block isn't in L2 as well, so we access Mem.
 
 		this->total_access_time += this->mem_access_time;
@@ -422,19 +413,10 @@ int main(int argc, char **argv) {
 			return 0;
 		}
 
-		// DEBUG - remove this line
-		cout << "operation: " << operation;
-
 		string cutAddress = address.substr(2); // Removing the "0x" part of the address
-
-		// DEBUG - remove this line
-		cout << ", address (hex)" << cutAddress;
 
 		unsigned long int num = 0;
 		num = strtoul(cutAddress.c_str(), NULL, 16);
-
-		// DEBUG - remove this line
-		cout << " (dec) " << num << endl;
 
 		cache.execute_command(operation, num);
 
