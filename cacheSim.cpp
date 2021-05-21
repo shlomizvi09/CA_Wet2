@@ -22,7 +22,7 @@ using std::stringstream;
 
 enum cache_line_status {DEFAULT=-1, MATCH, VACANCY, FULL}; //cache lookup results
 
-typedef uint32_t uint; //shortcut
+typedef unsigned int uint; //shortcut
 
 class way{
 	
@@ -62,11 +62,11 @@ class set_class{
 	
 	public:
 
+	static uint num_ways;
 	vector<way> way_vec;
 	uint last_mod_time;
 
-	set_class(uint ways) : way_vec(ways){
-		assert(way_vec.size() == ways);
+	set_class() : way_vec(1){
 		last_mod_time=0;
 	}
 
@@ -128,7 +128,7 @@ class cache_class{
 	public:
 	cache_class(uint block_size, uint L1_cache_size_bytes , uint L2_cache_size_bytes, 
 				uint L1_assoc, uint L2_assoc, uint write_alloc, uint L1_access_time, uint L2_access_time,
-				uint mem_access_time) : L1(L1_set_num), L2(L2_set_num){
+				uint mem_access_time) : L1(1), L2(1){
 
 		this->block_size_bytes = block_size;
 		
@@ -140,6 +140,16 @@ class cache_class{
 
 		this->L1_set_num = L1_cache_size_bytes/(L1_ways*block_size_bytes); // calculate number of sets in each cache.
 		this->L2_set_num = L2_cache_size_bytes/(L2_ways*block_size_bytes); // number of sets will be the length of the L1, L2 vectors.
+
+		this->L1.resize(L1_set_num);
+		this->L2.resize(L2_set_num);
+
+		for (std::vector<set_class>::size_type i = 0; i < this->L1.size(); i++){
+			L1[i].way_vec.resize(L1_ways);
+		}
+		for (std::vector<set_class>::size_type i = 0; i < this->L2.size(); i++){
+			L2[i].way_vec.resize(L2_ways);
+		}
 
 		this->write_alloc = write_alloc;
 
