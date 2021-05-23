@@ -81,14 +81,12 @@ class set_class{
 
 	int get_LRU_way_index (){
 		int min_acc_index=0;
-		//cout << "way vec size is: " << this->way_vec.size() << endl;
 
 		for (std::vector<way>::size_type i = 0; i < this->way_vec.size(); i++){
 			if (this->way_vec[min_acc_index].this_mod_time > this->way_vec[i].this_mod_time){
 				min_acc_index = i;
 				
 			}
-			 	//cout << "address: " <<  this->way_vec[i].tag << "has mod time: " << this->way_vec[i].this_mod_time <<endl;
 		}
 
 		return min_acc_index;
@@ -179,9 +177,9 @@ class cache_class{
 
 	}
 
-	uint get_L1_set_index(uint address){//find appropriate set in L1
+	uint get_L1_set_index(uint address){	//find appropriate set in L1
 
-		uint L1_index = address;//<< 2;
+		uint L1_index = address;
 		L1_index = L1_index >> int(log2(this->block_size));
 		L1_index = L1_index % (L1_set_num);
 		return L1_index;
@@ -190,7 +188,7 @@ class cache_class{
 
 	uint get_L2_set_index(uint address){
 
-		uint L2_index = address;// <<2;
+		uint L2_index = address;
 		L2_index = L2_index >> int(log2(this->block_size));
 		L2_index = L2_index % (L2_set_num);
 		return L2_index;
@@ -254,8 +252,7 @@ class cache_class{
 		}
 	 }
 
-	void evict_block_from_L1(uint L1_set_index, uint L1_way_index){
-		//cout << "evicting from L1 set " <<  L1_set_index << " with way " << L1_way_index <<" and has address " <<  this->L1[L1_set_index].way_vec[L1_way_index].tag << endl;			
+	void evict_block_from_L1(uint L1_set_index, uint L1_way_index){		
 
 		assert(this->L1[L1_set_index].way_vec[L1_way_index].tag != -1);
 		if (this->L1[L1_set_index].way_vec[L1_way_index].dirty){  // Write Back
@@ -281,8 +278,7 @@ class cache_class{
 		}
 		if (this->L2[L2_set_index].way_vec[L2_way_index].dirty){
 			// do nothing, it's a Write Back.
-		}
-		//cout << "evicting from L2 set " <<  L2_set_index << " with way " << L2_way_index <<" and has address " << address<< endl;			
+		}		
 		this->L2[L2_set_index].way_vec[L2_way_index].dirty = 0;
 		this->L2[L2_set_index].way_vec[L2_way_index].tag = -1;
 	}
@@ -302,8 +298,6 @@ class cache_class{
 
 		if(L1_lookup_result == MATCH)//data found in L1
 		{
-			//cout << "L1 hit, " ;
-
 			if (command=='w'){
 				this->L1[L1_set_index].way_vec[L1_way_index].dirty = 1;
 			}
@@ -312,12 +306,10 @@ class cache_class{
 			return;
 		}
 		this->L1_total_misses++;
-		//cout << "L1 miss, " ;
 		L2_lookup_result = access_L2(address, &L2_way_index, command); //data not found in L1, trying L2
 		this->L2_total_access ++;
 		this->total_access_time += this->L2_access_time;
 		if (L2_lookup_result == MATCH){
-			//cout << "L2 hit ";
 			if (command == 'w' && !(this->write_alloc)){ // Writing in "No Write Allocate" method, without copying to L1
 				this->L2[L2_set_index].way_vec[L2_way_index].dirty = 1;
 				this->L2[L2_set_index].last_mod_time += 1; //increase set max access time by 1
@@ -339,7 +331,6 @@ class cache_class{
 
 			return;
 		}
-		//cout << "L2 miss, " ;
 
 		this->L2_total_misses++;
 		// if we got here, the block isn't in L2 as well, so we access Mem.
@@ -430,23 +421,13 @@ int main(int argc, char **argv) {
 		char operation = 0; // read (R) or write (W)
 		if (!(ss >> operation >> address)) {
 			// Operation appears in an Invalid format
-			//cout << "Command Format error" << endl;
 			return 0;
 		}
-		// DEBUG - remove this line
-		//cout<< endl << "------------------------------------------\n";
-		//cout << "operation: " << operation;
 
 		string cutAddress = address.substr(2); // Removing the "0x" part of the address
 
-		// DEBUG - remove this line
-		//cout << ", address (hex)" << cutAddress;
-
 		unsigned long int num = 0;
 		num = strtoul(cutAddress.c_str(), NULL, 16);
-
-		// DEBUG - remove this line
-		//cout << " (dec) " << num << " block: " << num - num % cache.block_size  << endl;
 
 		cache.execute_command(operation, num);
 
